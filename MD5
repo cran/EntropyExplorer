@@ -1,0 +1,7 @@
+8cad474ef31ec270fc0ca7a352c76698 *DESCRIPTION
+58a812220be05e84614151a9399f4562 *NAMESPACE
+2dda0bca1b147f19abf39191b7416cd4 *R/EntropyExplorer.r
+c6fa3ef1f9a245b4f56fdc44e627612d *inst/extdata/BreastCancer_case_10.txt
+da1a7acf9d81f86b8bfe671acdce0457 *inst/extdata/BreastCancer_control_10.txt
+fb3014f00e22ae77c8700d8c597ace9d *man/EntropyExplorer.Rd
+6ec8aae0204fa2e95515e8a5646ca0fb *man/GEOBreastCancer.Rd
