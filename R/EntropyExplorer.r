@@ -8,7 +8,7 @@
 #>chickm <- as.matrix(chick)		#both rownames(chick) and rownames(chickm) work fine
 # chickm<-as.matrix(read.table(file="Chicken_Metabolite.csv",header=TRUE, sep='\t',row.names=1))
 
-EntropyExplorer <- function(expm1,expm2,dmetric, otype,ntop,nperm,shift=c(0,0))
+EntropyExplorer <- function(expm1,expm2,dmetric, otype,ntop,nperm,shift=c(0,0),padjustmethod="fdr")
 {
 	if(missing(expm1))
 	{
@@ -29,19 +29,27 @@ EntropyExplorer <- function(expm1,expm2,dmetric, otype,ntop,nperm,shift=c(0,0))
 	}
 	if(tolower(dmetric)!="de" & tolower(dmetric)!="dcv" & tolower(dmetric)!="dse")
 	{
-		stop("supported dmetric: de, dcv, dse")
+		stop("supported dmetric: de, dcv, dse; put quotes around dmetric names")
 	}
-	if(tolower(otype)!="v" & tolower(otype)!="p" & tolower(otype)!="bv" & tolower(otype)!="bp")
+	if(tolower(otype)!="v" & tolower(otype)!="pr" & tolower(otype)!="pa" & tolower(otype)!="bv" & tolower(otype)!="br" & tolower(otype)!="ba" & tolower(otype)!="vu" & tolower(otype)!="pu" & tolower(otype)!="bu")
 	{
-		stop("supported otype: v, p, bv, bp")
+		stop("supported otype: v, pr, pa, bv, br, ba, vu, pu, bu; put quotes around otype names")
+	}
+	if(padjustmethod!="holm" & padjustmethod!="hochberg" & padjustmethod!="hommel" & padjustmethod!="bonferroni" & padjustmethod!="BH" & padjustmethod!="BY" & padjustmethod!="fdr" & padjustmethod!="none")
+	{
+		stop("supported padjustmethod: holm, hochberg, hommel, bonferroni, BH, BY, fdr, none; put quotes around padjustmethod names")
 	}
 	if((tolower(dmetric)=="de" |  tolower(dmetric)=="dcv") & !missing(nperm))
 	{
 		stop("nperm need not be specified for differential expression analysis and differential CV analysis.")
 	}
-	if(tolower(dmetric)=="dse" &  tolower(otype)=="v" & !missing(nperm))
+	if(tolower(dmetric)=="dse" &  (tolower(otype)=="v" | tolower(otype)=="vu") & !missing(nperm))
 	{
-		stop("nperm need not be specified for differential nse analysis with otype of v.")
+		stop("nperm need not be specified for differential nse analysis with otype of v or vu.")
+	}
+	if(!missing(padjustmethod) & (tolower(otype)=="v" | tolower(otype)=="vu"))
+	{
+		stop("padjustmethod need not be specified for otype of v or vu.")
 	}
 	
 	min1 <- min(expm1,na.rm=TRUE)
@@ -134,64 +142,136 @@ EntropyExplorer <- function(expm1,expm2,dmetric, otype,ntop,nperm,shift=c(0,0))
 	{
 		if(tolower(otype)=="v")#differential value
 		{
-			return (diffexp1(expm1,expm2, ntop))
+			return (diffexp1(expm1,expm2, 1,ntop))
 		}
-		else if(tolower(otype)=="p")#differential p-value
+		else if(tolower(otype)=="vu")#differential value; no sort
 		{
-			return (diffexp2(expm1,expm2, ntop))
+			return (diffexp1(expm1,expm2, 0,ntop))
 		}
-		else if(tolower(otype)=="bp")
+		else if(tolower(otype)=="pr")#differential p-value; sort by raw p-value
 		{
-			return (diffexp(expm1,expm2, ntop,2))
+			return (diffexp2(expm1,expm2, 1, ntop,padjustmethod))
+		}
+		else if(tolower(otype)=="pa")#differential p-value; sort by adjusted p-value
+		{
+			return (diffexp2(expm1,expm2, 2, ntop,padjustmethod))
+		}
+		else if(tolower(otype)=="pu")#differential p-value; no sort
+		{
+			return (diffexp2(expm1,expm2, 0, ntop,padjustmethod))
+		}
+		else if(tolower(otype)=="br")#sort by raw p-value
+		{
+			return (diffexp(expm1,expm2, ntop,2,padjustmethod))
+		}
+		else if(tolower(otype)=="ba")#sort by adjusted p-value
+		{
+			return (diffexp(expm1,expm2, ntop,3,padjustmethod))
 		}
 		else if(tolower(otype)=="bv")
 		{
-			return (diffexp(expm1,expm2, ntop,1))
+			return (diffexp(expm1,expm2, ntop,1,padjustmethod))
+		}
+		else if(tolower(otype)=="bu")
+		{
+			return (diffexp(expm1,expm2, ntop,0,padjustmethod))
 		}
 	}
 	else if(tolower(dmetric)=="dcv")#differential CV
 	{
 		if(tolower(otype)=="v")#differential value
 		{
-			return (diffcv(expm1,expm2, ntop))
+			return (diffcv(expm1,expm2, 1, ntop))
 		}
-		else if(tolower(otype)=="p")#differential p-value
+		else if(tolower(otype)=="vu")#differential value; no sort
 		{
-			return (diffcvpFK(expm1,expm2, ntop))
+			return (diffcv(expm1,expm2, 0, ntop))
 		}
-		else if(tolower(otype)=="bp")
+		else if(tolower(otype)=="pr")#differential p-value; sort by raw p-value
 		{
-			return (diffcvall(expm1,expm2, ntop,2))
+			return (diffcvpFK(expm1,expm2, 1, ntop,padjustmethod))
+		}
+		else if(tolower(otype)=="pa")#differential p-value; sort by adjusted p-value
+		{
+			return (diffcvpFK(expm1,expm2, 2, ntop,padjustmethod))
+		}
+		else if(tolower(otype)=="pu")#differential p-value; no sort
+		{
+			return (diffcvpFK(expm1,expm2, 0, ntop,padjustmethod))
+		}
+		else if(tolower(otype)=="br")#sort by raw p-value
+		{
+			return (diffcvall(expm1,expm2, ntop,2,padjustmethod))
+		}
+		else if(tolower(otype)=="ba")#sort by adjusted p-value
+		{
+			return (diffcvall(expm1,expm2, ntop,3,padjustmethod))
 		}
 		else if(tolower(otype)=="bv")
 		{
-			return (diffcvall(expm1,expm2, ntop,1))
+			return (diffcvall(expm1,expm2, ntop,1,padjustmethod))
+		}
+		else if(tolower(otype)=="bu")
+		{
+			return (diffcvall(expm1,expm2, ntop,0,padjustmethod))
 		}
 	}
 	else if(tolower(dmetric)=="dse")#differential entropy
 	{
 		if(tolower(otype)=="v")#differential value
 		{
-			return (diffnse(expm1,expm2, ntop))
+			return (diffnse(expm1,expm2, 1, ntop))
 		}
-		else if(tolower(otype)=="p")#differential p-value
+		else if(tolower(otype)=="vu")#differential value; no sort
 		{
-			return (diffnsepperm(expm1,expm2, ntop,nperm))
+			return (diffnse(expm1,expm2, 0, ntop))
 		}
-		else if(tolower(otype)=="bp")
+		else if(tolower(otype)=="pr")#differential p-value; sort by raw p-value
 		{
-			return (diffseall(expm1,expm2, ntop,nperm,2))
+			return (diffnsepperm(expm1,expm2, 1, ntop,nperm,padjustmethod))
+		}
+		else if(tolower(otype)=="pa")#differential p-value; sort by adjusted p-value
+		{
+			return (diffnsepperm(expm1,expm2, 2, ntop,nperm,padjustmethod))
+		}
+		else if(tolower(otype)=="pu")#differential p-value; no sort
+		{
+			return (diffnsepperm(expm1,expm2, 0, ntop,nperm,padjustmethod))
+		}
+		else if(tolower(otype)=="br")#sort by raw p-value
+		{
+			return (diffseall(expm1,expm2, ntop,nperm,2,padjustmethod))
+		}
+		else if(tolower(otype)=="ba")#sort by adjusted p-value
+		{
+			return (diffseall(expm1,expm2, ntop,nperm,3,padjustmethod))
 		}
 		else if(tolower(otype)=="bv")
 		{
-			return (diffseall(expm1,expm2, ntop,nperm,1))
+			return (diffseall(expm1,expm2, ntop,nperm,1,padjustmethod))
+		}
+		else if(tolower(otype)=="bu")
+		{
+			return (diffseall(expm1,expm2, ntop,nperm,0,padjustmethod))
 		}
 	}
 }#EntropyExplorer
 
+adjustlabel <- function(padjustmethod)
+{
+	if(padjustmethod=="none")
+	{
+		return ("raw p-value");
+	}
+	else
+	{
+		return (paste(padjustmethod,"p-value"));
+	}
+}#adjustlabel
+
 #expm1 and expm2 are of class matrix; diffexp1 is function name
-#returns a one-column matrix (absolute differences between means) with row number equal to ntop
-diffexp1 <- function(expm1,expm2, ntop)
+#dosort==1 then sort output rows; otherwise just output the first ntop rows of the input data
+diffexp1 <- function(expm1,expm2, dosort, ntop)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -202,8 +282,15 @@ diffexp1 <- function(expm1,expm2, ntop)
 	}
 	stopifnot(ntop>0)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	de1 <- matrix(0,nrow=genecount,ncol=1,dimnames=list(rownames(expm1),"differential expression"))
+	if(dosort==1)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
+	de1 <- matrix(0,nrow=genecount,ncol=4,dimnames=list(rownames(expm1)[1:genecount],c("differential expression", "avg(expm1)", "avg(expm2)", "avg(expm1)-avg(expm2)")))
 	nacount <- 0
 	for (i in 1:genecount)
 	{
@@ -211,6 +298,9 @@ diffexp1 <- function(expm1,expm2, ntop)
 		if (length(x1)<4)
 		{
 			de1[i,1] <- -1
+			de1[i,2] <- NA
+			de1[i,3] <- NA
+			de1[i,4] <- NA
 			nacount <- nacount+1
 			next
 		}
@@ -218,28 +308,35 @@ diffexp1 <- function(expm1,expm2, ntop)
 		if (length(x2)<4)
 		{
 			de1[i,1] <- -1
+			de1[i,2] <- NA
+			de1[i,3] <- NA
+			de1[i,4] <- NA
 			nacount <- nacount+1
 			next
 		}
-		e1 <- mean(x1)
-		e2 <- mean(x2)
-		de1[i,1] <- abs(e1-e2)
+		de1[i,2] <- mean(x1)
+		de1[i,3] <- mean(x2)
+		de1[i,4] <- de1[i,2]-de1[i,3]
+		de1[i,1] <- abs(de1[i,4])
 	}
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2.")
 	}
-	de1 <- de1[ order(-de1[,1]), ,drop=FALSE]#decreasing order
-	if(ntop>dimv1[1]-nacount)
+	if(dosort==1)
+	{
+		de1 <- de1[ order(-de1[,1]), ,drop=FALSE]#decreasing order
+	}
+	if(dosort==1 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
-	return (de1[c(0:ntop), ,drop=FALSE]);
+	return (de1[c(0:ntop), c(2:4),drop=FALSE]);
 }#diffexp1
 
 #expm1 and expm2 are of class matrix; diffexp2 is function name
-#returns a one column matrix of p-values (t-test) with row-number equal to ntop
-diffexp2 <- function(expm1,expm2,ntop)
+#returns a two column matrix of p-values (t-test) with row-number equal to ntop
+diffexp2 <- function(expm1,expm2,dosort,ntop,padjustmethod)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -250,8 +347,15 @@ diffexp2 <- function(expm1,expm2,ntop)
 	}
 	stopifnot(ntop>0)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	de1 <- matrix(0,nrow=genecount,ncol=1,dimnames=list(rownames(expm1),"p-value"))
+	if(dosort>0)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
+	de1 <- matrix(0,nrow=genecount,ncol=2,dimnames=list(rownames(expm1)[1:genecount],c("p-value",adjustlabel(padjustmethod))))
 	nacount <- 0
 	for (i in 1:genecount)
 	{
@@ -264,6 +368,12 @@ diffexp2 <- function(expm1,expm2,ntop)
 		}
 		x2 <- expm2[i,][!is.na(expm2[i,])]
 		if (length(x2)<4)
+		{
+			de1[i,1] <- 2
+			nacount <- nacount+1
+			next
+		}
+		if(var(x1)==0 & var(x2)==0)#t.test will complain "data are essentially constant" if both case and control have 0 variance
 		{
 			de1[i,1] <- 2
 			nacount <- nacount+1
@@ -272,19 +382,28 @@ diffexp2 <- function(expm1,expm2,ntop)
 		myt=t.test(x1,x2)
 		de1[i,1] <- myt[['p.value']]
 	}
+	de1[,2] <- p.adjust(de1[,1],padjustmethod)
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2 or identical values in both expm1 and expm2.")
 	}
-	de1 <- de1[order(de1[,1]), ,drop=FALSE]#increasing order
-	if(ntop>dimv1[1]-nacount)
+	if(dosort==1)
+	{
+		de1 <- de1[order(de1[,1]), ,drop=FALSE]#increasing order of raw p-value
+	}
+	else if(dosort==2)
+	{
+		de1 <- de1[order(de1[,2]), ,drop=FALSE]#increasing order of adjusted p-value
+	}
+	if(dosort>0 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
 	return (de1[c(0:ntop), ,drop=FALSE]);
 }#diffexp2
 
-diffexp <- function(expm1,expm2, ntop,sorder)
+#sorder==3 sort by adjusted p-value; ==2 sort by raw p-value; ==1 sort by value; ==0 no sort
+diffexp <- function(expm1,expm2, ntop,sorder,padjustmethod)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -295,54 +414,83 @@ diffexp <- function(expm1,expm2, ntop,sorder)
 	}
 	stopifnot(ntop>0)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	detwo <- matrix(0,nrow=genecount,ncol=2,dimnames=list(rownames(expm1),c("differential expression","p-value")))#col1: value; col2: p-value
-	nacount <- 0
-	for (i in 1:genecount)
+	if(sorder>0)
 	{
-		x1 <- expm1[i,][!is.na(expm1[i,])]
-		if (length(x1)<4)
-		{
-			detwo[i,1] <- -1
-			detwo[i,2] <- 2
-			nacount <- nacount+1
-			next
-		}
-		x2 <- expm2[i,][!is.na(expm2[i,])]
-		if (length(x2)<4)
-		{
-			detwo[i,1] <- -1
-			detwo[i,2] <- 2
-			nacount <- nacount+1
-			next
-		}
-		e1 <- mean(x1)
-		e2 <- mean(x2)
-		detwo[i,1] <- abs(e1-e2)
-		myt=t.test(x1,x2)
-		detwo[i,2] <- myt[['p.value']]
-	}
-	if(nacount>0)
-	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
-	}
-	if(sorder==2)
-	{
-		detwo<-detwo[ order(detwo[,sorder]), , drop=FALSE];
+		genecount <- dimv1[1]
 	}
 	else
 	{
-		detwo<-detwo[ order(-detwo[,sorder]), , drop=FALSE];
+		genecount <- ntop
 	}
-	if(ntop>dimv1[1]-nacount)
+	detwo <- matrix(0,nrow=genecount,ncol=6,dimnames=list(rownames(expm1)[1:genecount],c("differential expression","avg(expm1)", "avg(expm2)", "avg(expm1)-avg(exmp2)","p-value",adjustlabel(padjustmethod))))#col1: abs diff value; col2: value1; col3: value2; col4: signed diff value; col5: p-value; col6: adjusted p-value
+	nacount <- 0
+	for (i in 1:genecount)
+	{
+		x1 <- expm1[i,][!is.na(expm1[i,])]
+		if (length(x1)<4)
+		{
+			detwo[i,1] <- -1
+			detwo[i,2] <- NA
+			detwo[i,3] <- NA
+			detwo[i,4] <- NA
+			detwo[i,5] <- 2
+			nacount <- nacount+1
+			next
+		}
+		x2 <- expm2[i,][!is.na(expm2[i,])]
+		if (length(x2)<4)
+		{
+			detwo[i,1] <- -1
+			detwo[i,2] <- NA
+			detwo[i,3] <- NA
+			detwo[i,4] <- NA
+			detwo[i,5] <- 2
+			nacount <- nacount+1
+			next
+		}
+		if(var(x1)==0 & var(x2)==0)#t.test will complain "data are essentially constant" if both case and control have 0 variance
+		{
+			detwo[i,2] <- mean(x1)
+			detwo[i,3] <- mean(x2)
+			detwo[i,4] <- detwo[i,2] - detwo[i,3]
+			detwo[i,1] <- abs(detwo[i,4])
+			detwo[i,5] <- NA
+			nacount <- nacount+1
+			next
+		}
+		detwo[i,2] <- mean(x1)
+		detwo[i,3] <- mean(x2)
+		detwo[i,4] <- detwo[i,2] - detwo[i,3]
+		detwo[i,1] <- abs(detwo[i,4])
+		myt=t.test(x1,x2)
+		detwo[i,5] <- myt[['p.value']]
+	}
+	detwo[,6] <- p.adjust(detwo[,5],padjustmethod)
+	if(nacount>0)
+	{
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2 or identical values in both expm1 and expm2.")
+	}
+	if(sorder==2)#sort by raw p-value
+	{
+		detwo<-detwo[ order(detwo[,5]), , drop=FALSE];
+	}
+	else if(sorder==3)#sort by adjusted p-value
+	{
+		detwo<-detwo[ order(detwo[,6]), , drop=FALSE];
+	}
+	else if(sorder==1)#sort by value
+	{
+		detwo<-detwo[ order(-detwo[,1]), , drop=FALSE];
+	}
+	if(sorder>0 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
-	return (detwo[c(0:ntop), ,drop=FALSE]);
+	return (detwo[c(0:ntop), c(2:6) ,drop=FALSE]);
 }#diffexp
 
 #expm1 and expm2 are of class matrix; diffcv is function name
-diffcv <- function(expm1,expm2,ntop)
+diffcv <- function(expm1,expm2,dosort, ntop)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -353,8 +501,15 @@ diffcv <- function(expm1,expm2,ntop)
 	}
 	stopifnot(ntop>0)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	dcv <- matrix(0,nrow=genecount,ncol=1,dimnames=list(rownames(expm1),"differential CV"))
+	if(dosort==1)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
+	dcv <- matrix(0,nrow=genecount,ncol=4,dimnames=list(rownames(expm1)[1:genecount],c("differential CV", "CV(expm1)", "CV(expm2)", "CV(expm1)-CV(expm2)")))
 	nacount <- 0
 	for (i in 1:genecount)
 	{
@@ -362,6 +517,9 @@ diffcv <- function(expm1,expm2,ntop)
 		if (length(x1)<4)
 		{
 			dcv[i,1] <- -1
+			dcv[i,2] <- NA
+			dcv[i,3] <- NA
+			dcv[i,4] <- NA
 			nacount <- nacount+1
 			next
 		}
@@ -369,29 +527,35 @@ diffcv <- function(expm1,expm2,ntop)
 		if (length(x2)<4)
 		{
 			dcv[i,1] <- -1
+			dcv[i,2] <- NA
+			dcv[i,3] <- NA
+			dcv[i,4] <- NA
 			nacount <- nacount+1
 			next
 		}
-		cv1 <- sd(x1)/mean(x1)
-		cv2 <- sd(x2)/mean(x2)
-		dcv[i,1] <- abs(cv1-cv2)
+		dcv[i,2] <- sd(x1)/mean(x1)
+		dcv[i,3] <- sd(x2)/mean(x2)
+		dcv[i,4] <- dcv[i,2]-dcv[i,3]
+		dcv[i,1] <- abs(dcv[i,4])
 	}
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2.")
 	}
-	dcv <- dcv[order(-dcv[,1]), ,drop=FALSE]
-	if(ntop>dimv1[1]-nacount)
+	if(dosort==1)
+	{
+		dcv <- dcv[order(-dcv[,1]), ,drop=FALSE]
+	}
+	if(dosort==1 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
-	return (dcv[c(0:ntop), ,drop=FALSE]);
+	return (dcv[c(0:ntop), c(2:4),drop=FALSE]);
 }#diffcv
 
 #expm1 and expm2 are of class matrix; diffcvpFK is function name
-#returns a one-column matrix of pvalues
-#based on Fligner-Killeen (median) test
-diffcvpFK <- function(expm1,expm2,ntop)
+#returns a two-column matrix of pvalues based on Fligner-Killeen (median) test
+diffcvpFK <- function(expm1,expm2,dosort,ntop,padjustmethod)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -402,8 +566,15 @@ diffcvpFK <- function(expm1,expm2,ntop)
 	}
 	stopifnot(ntop>0)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	pcv <- matrix(0,nrow=genecount,ncol=1,dimnames=list(rownames(expm1),"p-value"))
+	if(dosort>0)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
+	pcv <- matrix(0,nrow=genecount,ncol=2,dimnames=list(rownames(expm1)[1:genecount],c("p-value",adjustlabel(padjustmethod))))
 	nacount<-0
 	for (i in 1:genecount)
 	{
@@ -424,19 +595,28 @@ diffcvpFK <- function(expm1,expm2,ntop)
 		result <- fligner.test(list(log(x1),log(x2)))
 		pcv[i,1] <- result$p.value
 	}
+	pcv[,2] <- p.adjust(pcv[,1],padjustmethod)
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2.")
 	}
-	pcv <- pcv[order(pcv[,1]), ,drop=FALSE]
-	if(ntop>dimv1[1]-nacount)
+	if(dosort==1)#sort by raw p-value
+	{
+		pcv <- pcv[order(pcv[,1]), ,drop=FALSE]
+	}
+	else if(dosort==2)#sort by adjusted p-value
+	{
+		pcv <- pcv[order(pcv[,2]), ,drop=FALSE]
+	}
+	if(dosort>0 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
 	return (pcv[c(0:ntop), ,drop=FALSE]);
 }#diffcvpFK
 
-diffcvall <- function(expm1,expm2, ntop, sorder)
+#sorder==3 sort by adjusted p-value; ==2 sort by raw p-value; ==1 sort by value; ==0 no sort
+diffcvall <- function(expm1,expm2, ntop, sorder,padjustmethod)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -447,8 +627,15 @@ diffcvall <- function(expm1,expm2, ntop, sorder)
 	}
 	stopifnot(ntop>0)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	dcvtwo <- matrix(0,nrow=genecount,ncol=2,dimnames=list(rownames(expm1),c("differential CV","p-value")))#col1: value; col2: p-value
+	if(sorder>0)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
+	dcvtwo <- matrix(0,nrow=genecount,ncol=6,dimnames=list(rownames(expm1)[1:genecount],c("differential CV","CV(expm1)", "CV(expm2)", "CV(expm1)-CV(expm2)", "p-value", adjustlabel(padjustmethod))))#col1: abs diff value; col2: value1; col3: value2; col4: signed diff value; col5: p-value; col6: adjusted p-value
 	nacount <- 0
 	for (i in 1:genecount)
 	{
@@ -456,7 +643,10 @@ diffcvall <- function(expm1,expm2, ntop, sorder)
 		if (length(x1)<4)
 		{
 			dcvtwo[i,1] <- -1
-			dcvtwo[i,2] <- 2
+			dcvtwo[i,2] <- NA
+			dcvtwo[i,3] <- NA
+			dcvtwo[i,4] <- NA
+			dcvtwo[i,5] <- 2
 			nacount <- nacount+1
 			next
 		}
@@ -464,38 +654,46 @@ diffcvall <- function(expm1,expm2, ntop, sorder)
 		if (length(x2)<4)
 		{
 			dcvtwo[i,1] <- -1
-			dcvtwo[i,2] <- 2
+			dcvtwo[i,2] <- NA
+			dcvtwo[i,3] <- NA
+			dcvtwo[i,4] <- NA
+			dcvtwo[i,5] <- 2
 			nacount <- nacount+1
 			next
 		}
-		cv1 <- sd(x1)/mean(x1)
-		cv2 <- sd(x2)/mean(x2)
-		dcvtwo[i,1] <- abs(cv1-cv2)
+		dcvtwo[i,2] <- sd(x1)/mean(x1)
+		dcvtwo[i,3] <- sd(x2)/mean(x2)
+		dcvtwo[i,4] <- dcvtwo[i,2]-dcvtwo[i,3]
+		dcvtwo[i,1] <- abs(dcvtwo[i,4])
 		result <- fligner.test(list(log(x1),log(x2)))
-		dcvtwo[i,2] <- result$p.value
+		dcvtwo[i,5] <- result$p.value
 	}
+	dcvtwo[,6] <- p.adjust(dcvtwo[,5],padjustmethod)
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2.")
 	}
-	if(sorder==2)
+	if(sorder==2)#sort by raw p-value
 	{
-		dcvtwo<-dcvtwo[ order(dcvtwo[,sorder]), , drop=FALSE];#ascending order
+		dcvtwo<-dcvtwo[ order(dcvtwo[,5]), , drop=FALSE];#ascending order
 	}
-	else
+	else if(sorder==3)#sort by adjusted p-value
 	{
-		dcvtwo<-dcvtwo[ order(-dcvtwo[,sorder]), , drop=FALSE];#decending order
+		dcvtwo<-dcvtwo[ order(dcvtwo[,6]), , drop=FALSE];#ascending order
 	}
-	if(ntop>dimv1[1]-nacount)
+	else if(sorder==1)#sort by value
+	{
+		dcvtwo<-dcvtwo[ order(-dcvtwo[,1]), , drop=FALSE];#decending order
+	}
+	if(sorder > 0 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
-	return (dcvtwo[c(0:ntop), ,drop=FALSE]);
+	return (dcvtwo[c(0:ntop), c(2:6),drop=FALSE]);
 }#diffcvall
 
 #expm1 and expm2 are of class matrix; diffnse is function name
-#returns a one-column matrix with row number equal to ntop
-diffnse <- function(expm1,expm2,ntop)
+diffnse <- function(expm1,expm2,dosort,ntop)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -506,8 +704,15 @@ diffnse <- function(expm1,expm2,ntop)
 	}
 	stopifnot(ntop>0)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	dnse <- matrix(0,nrow=genecount,ncol=1,dimnames=list(rownames(expm1),"differential entropy"))
+	if(dosort==1)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
+	dnse <- matrix(0,nrow=genecount,ncol=4,dimnames=list(rownames(expm1)[1:genecount],c("differential entropy","SE(expm1)", "SE(expm2)", "SE(expm1)-SE(expm2)")))
 	nacount<-0
 	for (i in 1:genecount)
 	{
@@ -515,6 +720,9 @@ diffnse <- function(expm1,expm2,ntop)
 		if (length(x1)<4)
 		{
 			dnse[i,1] <- -1
+			dnse[i,2] <- NA
+			dnse[i,3] <- NA
+			dnse[i,4] <- NA
 			nacount<-nacount+1
 			next
 		}
@@ -522,6 +730,9 @@ diffnse <- function(expm1,expm2,ntop)
 		if (length(x2)<4)
 		{
 			dnse[i,1] <- -1
+			dnse[i,2] <- NA
+			dnse[i,3] <- NA
+			dnse[i,4] <- NA
 			nacount<-nacount+1
 			next
 		}
@@ -531,7 +742,7 @@ diffnse <- function(expm1,expm2,ntop)
 		{
 			t <- t+x1[j]/s*log2(x1[j]/s)
 		}
-		nse1 <- -t/log2(length(x1))
+		dnse[i,2] <- -t/log2(length(x1))
 		
 		s <- sum(x2)
 		t <- 0
@@ -539,25 +750,29 @@ diffnse <- function(expm1,expm2,ntop)
 		{
 			t <- t+x2[j]/s*log2(x2[j]/s)
 		}
-		nse2 <- -t/log2(length(x2))
-		dnse[i,1] <- abs(nse1-nse2)
+		dnse[i,3] <- -t/log2(length(x2))
+		dnse[i,4] <- dnse[i,2]-dnse[i,3]
+		dnse[i,1] <- abs(dnse[i,4])
 	}
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2.")
 	}
-	dnse <- dnse[order(-dnse[,1]), ,drop=FALSE]
-	if(ntop>dimv1[1]-nacount)
+	if(dosort==1)
+	{
+		dnse <- dnse[order(-dnse[,1]), ,drop=FALSE]
+	}
+	if(dosort==1 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
-	return (dnse[c(0:ntop), ,drop=FALSE]);
+	return (dnse[c(0:ntop), c(2:4),drop=FALSE]);
 }#diffnse
 
 #expm1 and expm2 are of class matrix; diffnsepperm is function name
-#returns a one-column matrix of pvalues with row number equal to ntop
+#returns a two-column matrix of pvalues with row number equal to ntop
 #uses the permutation test method
-diffnsepperm <- function(expm1,expm2,ntop,nperm)
+diffnsepperm <- function(expm1,expm2,dosort,ntop,nperm,padjustmethod)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -573,7 +788,14 @@ diffnsepperm <- function(expm1,expm2,ntop,nperm)
 	stopifnot(ntop>0)
 	stopifnot(nperm>=100)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
+	if(dosort>0)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
 	dnse <- matrix(0,nrow=genecount,ncol=1) #to store signed differential value
 	nacount<-0
 	
@@ -612,10 +834,10 @@ diffnsepperm <- function(expm1,expm2,ntop,nperm)
 	}
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2.")
 	}
 
-	pe <- matrix(0,nrow=genecount,ncol=1,dimnames=list(rownames(expm1),"p-value")) #to store p-value
+	pe <- matrix(0,nrow=genecount,ncol=2,dimnames=list(rownames(expm1)[1:genecount],c("p-value",adjustlabel(padjustmethod)))) #to store p-value and adjusted p-value
 	for (i in 1:genecount)
 	{
 		x1 <- expm1[i,][!is.na(expm1[i,])]
@@ -640,7 +862,6 @@ diffnsepperm <- function(expm1,expm2,ntop,nperm)
 		xc <- c(x1,x2)
 		xcLen <- x1Len + x2Len
 		ecount<-0
-		#Ncount <- 1000 #temporarily set 1000
 		Ncount <- nperm
 		for (j in 1:Ncount)
 		{
@@ -680,15 +901,23 @@ diffnsepperm <- function(expm1,expm2,ntop,nperm)
 		pe[i,1] <- ecount/Ncount
 	}#for i
 
-	pe <- pe[order(pe[,1]), ,drop=FALSE]
-	if(ntop>dimv1[1]-nacount)
+	pe[,2] <- p.adjust(pe[,1],padjustmethod)
+	if(dosort==1)#sort by raw p-value
+	{
+		pe <- pe[order(pe[,1]), ,drop=FALSE]
+	}
+	else if(dosort==2)#sort by adjusted p-value
+	{
+		pe <- pe[order(pe[,2]), ,drop=FALSE]
+	}
+	if(dosort>0 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
 	return (pe[c(0:ntop), ,drop=FALSE]);
 }#diffnsepperm; expand.grid? ReferenceClasses?
 
-diffseall <- function(expm1,expm2, ntop,nperm,sorder)
+diffseall <- function(expm1,expm2, ntop,nperm,sorder,padjustmethod)
 {
 	dimv1 <- dim(expm1)
 	dimv2 <- dim(expm2)
@@ -704,9 +933,16 @@ diffseall <- function(expm1,expm2, ntop,nperm,sorder)
 	stopifnot(ntop>0)
 	stopifnot(nperm>=100)
 	stopifnot(ntop<=dimv1[1])
-	genecount <- dimv1[1]
-	dsetwo <- matrix(0,nrow=genecount,ncol=2,dimnames=list(rownames(expm1),c("differential entropy","p-value")))#col1: value; col2: p-value
-	dnse <- matrix(0,nrow=genecount,ncol=1) #to store signed differential value
+	if(sorder>0)
+	{
+		genecount <- dimv1[1]
+	}
+	else
+	{
+		genecount <- ntop
+	}
+	dsetwo <- matrix(0,nrow=genecount,ncol=6,dimnames=list(rownames(expm1)[1:genecount],c("differential entropy","SE(expm1)", "SE(expm2)", "SE(expm1)-SE(expm2)","p-value",adjustlabel(padjustmethod))))#col1: abs diff value; col2: value1; col3: value2; col4: signed diff value; col5: p-value; col6: adjusted p-value
+	#dnse <- matrix(0,nrow=genecount,ncol=1) #to store signed differential value
 	nacount <- 0
 	for (i in 1:genecount)
 	{
@@ -714,7 +950,9 @@ diffseall <- function(expm1,expm2, ntop,nperm,sorder)
 		if (length(x1)<4)
 		{
 			dsetwo[i,1] <- -1
-			dnse[i,1] <- 0
+			dsetwo[i,2] <- NA
+			dsetwo[i,3] <- NA
+			dsetwo[i,4] <- NA
 			nacount <- nacount+1
 			next
 		}
@@ -722,7 +960,9 @@ diffseall <- function(expm1,expm2, ntop,nperm,sorder)
 		if (length(x2)<4)
 		{
 			dsetwo[i,1] <- -1
-			dnse[i,1] <- 0
+			dsetwo[i,2] <- NA
+			dsetwo[i,3] <- NA
+			dsetwo[i,4] <- NA
 			nacount <- nacount+1
 			next
 		}
@@ -732,7 +972,7 @@ diffseall <- function(expm1,expm2, ntop,nperm,sorder)
 		{
 			t <- t+x1[j]/s*log2(x1[j]/s)
 		}
-		nse1 <- -t/log2(length(x1))
+		dsetwo[i,2] <- -t/log2(length(x1))
 		
 		s <- sum(x2)
 		t <- 0
@@ -740,13 +980,13 @@ diffseall <- function(expm1,expm2, ntop,nperm,sorder)
 		{
 			t <- t+x2[j]/s*log2(x2[j]/s)
 		}
-		nse2 <- -t/log2(length(x2))
-		dsetwo[i,1] <- abs(nse1-nse2)
-		dnse[i,1] <- nse1-nse2
+		dsetwo[i,3] <- -t/log2(length(x2))
+		dsetwo[i,4] <- dsetwo[i,2]-dsetwo[i,3]
+		dsetwo[i,1] <- abs(dsetwo[i,4])
 	}
 	if(nacount>0)
 	{
-		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in case or control.")
+		warning(nacount, " gene(s)/probe ID(s) were excluded because of too few expression values in expm1 or expm2.")
 	}
 	for (i in 1:genecount)
 	{
@@ -754,25 +994,24 @@ diffseall <- function(expm1,expm2, ntop,nperm,sorder)
 		x1Len <- length(x1)
 		if (x1Len<4)
 		{
-			dsetwo[i,2] <- 2
+			dsetwo[i,5] <- 2
 			next
 		}
 		x2 <- expm2[i,][!is.na(expm2[i,])]
 		x2Len <- length(x2)
 		if (x2Len<4)
 		{
-			dsetwo[i,2] <- 2
+			dsetwo[i,5] <- 2
 			next
 		}
-		if(dnse[i,1]==0)
+		if(dsetwo[i,4]==0)
 		{
-			dsetwo[i,2] <- 1
+			dsetwo[i,5] <- 1
 			next
 		}
 		xc <- c(x1,x2)
 		xcLen <- x1Len + x2Len
 		ecount<-0
-		#Ncount <- 1000 #temporarily set 1000
 		Ncount <- nperm
 		for (j in 1:Ncount)
 		{
@@ -794,35 +1033,40 @@ diffseall <- function(expm1,expm2, ntop,nperm,sorder)
 				t <- t+x2temp[k]/s*log2(x2temp[k]/s)
 			}
 			nse2 <- -t/log2(x2Len)
-			if(dnse[i,1]>0)
+			if(dsetwo[i,4]>0)
 			{
-				if(nse1-nse2 >= dnse[i,1])
+				if(nse1-nse2 >= dsetwo[i,4])
 				{
 					ecount <- ecount +1
 				}
 			}
-			else #dnse[i,1]<0
+			else #dsetwo[i,4]<0
 			{
-				if(nse1-nse2 <= dnse[i,1])
+				if(nse1-nse2 <= dsetwo[i,4])
 				{
 					ecount <- ecount +1
 				}
 			}
 		} # for j
-		dsetwo[i,2] <- ecount/Ncount
+		dsetwo[i,5] <- ecount/Ncount
 	}#for i
 
-	if(sorder==2)
+	dsetwo[,6] <- p.adjust(dsetwo[,5],padjustmethod)
+	if(sorder==2)#sort by raw p-value
 	{
-		dsetwo<-dsetwo[ order(dsetwo[,sorder]), , drop=FALSE];
+		dsetwo<-dsetwo[ order(dsetwo[,5]), , drop=FALSE];
 	}
-	else
+	if(sorder==3)#sort by adjusted p-value
 	{
-		dsetwo<-dsetwo[ order(-dsetwo[,sorder]), , drop=FALSE];
+		dsetwo<-dsetwo[ order(dsetwo[,6]), , drop=FALSE];
 	}
-	if(ntop>dimv1[1]-nacount)
+	else if(sorder==1)#sort by value
+	{
+		dsetwo<-dsetwo[ order(-dsetwo[,1]), , drop=FALSE];
+	}
+	if(sorder > 0 & ntop>dimv1[1]-nacount)
 	{
 		ntop <- dimv1[1]-nacount
 	}
-	return (dsetwo[c(0:ntop), ,drop=FALSE]);
+	return (dsetwo[c(0:ntop), c(2:6),drop=FALSE]);
 }#diffseall
